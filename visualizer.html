@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentFare | World Visualizer</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --text: #f8fafc;
+            --accent: #38bdf8;
+            --agent-raider: #ef4444;
+            --agent-trader: #10b981;
+            --agent-diplomat: #8b5cf6;
+            --agent-explorer: #f59e0b;
+            --agent-opportunist: #64748b;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #map-container {
+            flex: 1;
+            position: relative;
+            background: #020617;
+            border-right: 2px solid #334155;
+            cursor: crosshair;
+        }
+
+        #side-panel {
+            width: 400px;
+            display: flex;
+            flex-direction: column;
+            background: var(--panel);
+        }
+
+        #drama-feed {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .event {
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            background: #334155;
+            border-radius: 4px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .agent-dot {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 10;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        .resource-dot {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 2px;
+            transform: translate(-50%, -50%);
+            opacity: 0.6;
+        }
+
+        .header {
+            padding: 1rem;
+            background: #1e293b;
+            border-bottom: 1px solid #334155;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stats { font-weight: bold; color: var(--accent); }
+    </style>
+</head>
+<body>
+    <div id="map-container"></div>
+    <div id="side-panel">
+        <div class="header">
+            <span>AgentFare 🌍</span>
+            <span id="tick-counter" class="stats">Tick: 0</span>
+        </div>
+        <div id="drama-feed">
+            <div class="event">Connecting to simulation...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000/api';
+        const WORLD_ID = 1;
+
+        async function updateMap() {
+            try {
+                const res = await fetch(`${API_BASE}/worlds/${WORLD_ID}/map_state/`);
+                const data = await res.json();
+                
+                document.getElementById('tick-counter').innerText = `Tick: ${data.current_tick}`;
+                renderMap(data);
+            } catch (e) { console.error(e); }
+        }
+
+        async function updateFeed() {
+            try {
+                const res = await fetch(`${API_BASE}/events/?world_id=${WORLD_ID}`);
+                const data = await res.json();
+                renderFeed(data.results);
+            } catch (e) { console.error(e); }
+        }
+
+        function renderMap(data) {
+            const container = document.getElementById('map-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            
+            // Clear or update agents
+            data.agents.forEach(agent => {
+                let div = document.getElementById(`agent-${agent.id}`);
+                if (!div) {
+                    div = document.createElement('div');
+                    div.id = `agent-${agent.id}`;
+                    div.className = 'agent-dot';
+                    div.title = `${agent.persona} (ID: ${agent.id})`;
+                    div.style.background = getAgentColor(agent.persona);
+                    container.appendChild(div);
+                }
+                div.style.left = `${(agent.position_x / 100) * width}px`;
+                div.style.top = `${(agent.position_y / 100) * height}px`;
+            });
+
+            // Update resources
+            // (Note: In a real app we'd be more efficient with resource rendering)
+        }
+
+        function renderFeed(events) {
+            const feed = document.getElementById('drama-feed');
+            feed.innerHTML = events.map(e => `
+                <div class="event">
+                    <small>T${e.tick} [${e.event_type}]</small><br>
+                    ${e.description}
+                </div>
+            `).join('');
+        }
+
+        function getAgentColor(persona) {
+            const colors = {
+                'AGGRESSIVE_RAIDER': '#ef4444',
+                'ECONOMIC_TRADER': '#10b981',
+                'DIPLOMAT': '#8b5cf6',
+                'EXPLORER': '#f59e0b',
+                'OPPORTUNIST': '#64748b'
+            };
+            return colors[persona] || '#fff';
+        }
+
+        setInterval(updateMap, 2000);
+        setInterval(updateFeed, 2000);
+    </script>
+</body>
+</html>
